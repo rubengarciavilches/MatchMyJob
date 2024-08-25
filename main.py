@@ -10,6 +10,7 @@ import db_queries
 import helper
 import my_db
 import my_types
+from processor import process_missing_ratings
 import scraper
 
 # https://github.com/Bunsly/JobSpy
@@ -83,7 +84,7 @@ def get_missing_ratings():
         rows = my_db.run_query(db_queries.missing_ratings)
 
         if not rows:
-            logger.error(f"Error retrieving missing ratings.")
+            logger.info(f"No missing ratings.")
             return None
 
         rows = [{'job_id': row[0], 'resume_id': row[1]} for row in rows]
@@ -102,7 +103,10 @@ def scrape_it():
 
 
 def process_it():
-    get_missing_ratings()
+    missing_ratings = get_missing_ratings()
+    if missing_ratings is None:
+        return
+    process_missing_ratings(missing_ratings)
 
 
 def main():

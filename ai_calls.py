@@ -1,12 +1,17 @@
+import datetime
 import json
+import time
 from typing import Dict, Any
 
 import common
 import helper
 
+TIME_BETWEEN_CALLS = 21
+
 # Initialize Logger, Supabase and OpenAI
 logger = common.get_logger()
 openai = common.get_openai_client()
+time_last_call = datetime.datetime.now()
 
 
 def _generate_response(response_object: dict, model: str, token_limit: int, system_prompt: list, user_prompt: list,
@@ -47,33 +52,49 @@ def _generate_response(response_object: dict, model: str, token_limit: int, syst
 
 
 def generate_rating(candidate_data: str) -> tuple[dict, dict] | None:
-    model = "gpt-4o-mini"
-    token_limit = 450
+    global time_last_call
+    time_now = datetime.datetime.now()
+    time_diff = (time_now - time_last_call).total_seconds()
+    if time_diff < TIME_BETWEEN_CALLS:
+        logger.info(f"Waiting for next request: {TIME_BETWEEN_CALLS - time_diff}")
+        time.sleep(TIME_BETWEEN_CALLS - time_diff)
+    time_last_call = datetime.datetime.now()
+
+    model = "gpt-3.5-turbo"
+    token_limit = 550
     system_prompt = [
-        {"role": "system", "content": "You are an expert job matching assistant."},
         {
             "role": "system",
-            "content": """Based on the following job description, rate how well this resume matches the job, 
-            from 0 to 10, and explain why in up to 200 words. Required experience in 
-            periods of time is of huge importance and will significantly reduce rating if not satisfied, 
-            in which case it will be explicitly stated with the precise amount of time 
-            and the difference with the candidate. Will differentiate between MUST have and NICE to have. 
-            You may fill in the following values if they are available, DO NOT make them up.
-            {"interval": "[yearly, monthly, hourly, etc.] period that applies to min/max_amount", "min_amount": 0, "max_amount": 0, "currency": "USD or other cur code", "is_remote": false}
-            """
-        },
+            "content": """
+        You are an expert job matching assistant specialized in evaluating candidates with minimal professional experience.
+        
+        Task: Rate how well the resume matches the job description, from 0 to 10. Explain the rating in up to 200 words.
+
+        Instructions:
+        1. DO NOT imagine, invent, or fabricate any information.
+        2. Consider alternative qualifications (e.g., academic achievements, internships, projects, transferable skills, overall potential) for candidates with limited experience.
+        3. Prioritize "MUST have" requirements. Be flexible with "NICE to have" requirements.
+        4. Provide constructive feedback where experience is lacking, and highlight compensating strengths.
+        5. Fill in the following values if available (DO NOT make them up):
+           - Interval: {"interval": "[yearly, monthly, hourly, etc.] period that applies to min/max_amount"}
+           - Compensation: {"min_amount": 0, "max_amount": 0, "currency": "USD or other cur code"}
+           - Work Type: {"is_remote": false/true}
+        6. Include relevant additional data for the candidate using the following format:
+           - {"display_data": [{"label": "display text"}]}
+           - Examples: relevant coursework, skill matches, project experience.
+
+        JSON Output Template:
         {
-            "role": "system",
-            "content": """You may want to fill in additional data to display to the candidate following this format:
-            {"display_data": [{"label": "display text"}]}
-            Examples are: observed experience requirements vs candidate experience, point by point or total, etc.
-            """
-        },
-        {
-            "role": "system",
-            "content": """Your justification will be JSON formatted following this template: 
-            {"rating": 0, "justification": "justification"}
-            """
+            "rating": 0,
+            "justification": "justification",
+            "display_data": [{"label": "", "content": ""}],
+            "interval": "[yearly, monthly, hourly, etc.] period that applies to min/max_amount",
+            "min_amount": 0,
+            "max_amount": 0,
+            "currency": "USD or other cur code",
+            "is_remote": false/true
+        }
+        """
         }
     ]
 

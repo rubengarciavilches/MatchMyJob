@@ -6,7 +6,6 @@ It will scrape the most popular job boards for jobs that may interest them, stor
 or resume, and rate how good of a match the user is for that position, justifying the provided rating.
 
 ## TODO
-
 - ✅ Create ``job`` table.
 - ✅ Define tables.
 - ✅ Create `user` table.

@@ -17,3 +17,11 @@ class JobSearchEntry(TypedDict):
 
 # Define a type for the list of such dictionaries
 JobSearchList = list[JobSearchEntry]
+
+
+class MissingRatingEntry(TypedDict):
+    job_id: int
+    resume_id: int
+
+
+MissingRatingEntryList = list[MissingRatingEntry]
