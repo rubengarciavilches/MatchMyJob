@@ -20,7 +20,7 @@ or resume, and rate how good of a match the user is for that position, justifyin
 - ❌ Create ``processor`` logic, adds to ``rating``.
 
 ## Program Flow
-![Flowchart](./assets/program_flow.png)
+<img src="./assets/program_flow.png" alt="flowchart" width="400"/>
 
 ### Scraping
 1. Retrieves all searches with ``last_search`` older than 3 hours.
@@ -41,7 +41,7 @@ Will keep track of any user data and will be used for Auth.
 
 ### ``search`` table:
 Each user may define multiple searches, which include parameters like:<br>
-``job_source``(str|list[str]), ``search_term``(str|list[str]), ``location``, ``results_wanted``(int), ``country``<br>
+``job_source``(str|list[str]), ``search_term``(str|list[str]), ``location``, ``results_wanted``(int), ``country``, ``user_id`` <br>
 These searches will trigger every 3 hours and relate to the job results.<br>
 They have metadata parameters: ``last_search``
 
@@ -55,4 +55,4 @@ Each job result will be rated by AI, keeps track of:
 Will keep track of any resumes the user has added to be processed, they may only have one active resume at a time
 , it will only store the resume AFTER it has been cleaned of confidential data and has been reduced using a tokenizer, 
 it will also track the active resume file if one was submitted, but this wont be used.
-``user_id``, ``content``, ``date_uploaded``, ``file_url``
+``user_id``, ``content``, ``date_uploaded``, ``file_url``, ``is_active``

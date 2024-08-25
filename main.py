@@ -6,7 +6,9 @@ import os
 from supabase import Client
 
 import common
+import db_queries
 import helper
+import my_db
 import my_types
 import scraper
 
@@ -48,7 +50,7 @@ def get_outdated_searches() -> my_types.JobSearchList | None:
         return response
 
     except Exception as e:
-        logger.error(f"An error occurred: {e}")
+        logger.error(f"An error occurred while retrieving outdated searches: {e}")
         return None
 
 
@@ -62,7 +64,7 @@ def set_search_last_updated(search: my_types.JobSearchEntry):
         }
 
         response = supabase.table('search').update(update_data).eq('id', search['id']).execute()
-        if not response.data:
+        if not response.data or len(response.data) <= 0:
             logger.error(f"Error storing search: {response.error.message}")
         else:
             logger.info(f"Stored search with ID: {response.data[0]['id']}")
@@ -71,10 +73,41 @@ def set_search_last_updated(search: my_types.JobSearchEntry):
         logger.error(f"Error during search scraping or storing: {str(e)}")
 
 
-def main():
+def get_missing_ratings():
+    """
+    The missing ratings will be the ones that: There is a search_job, but the user that triggered it has no resume
+    together with it on ratings table.
+    :return:
+    """
+    try:
+        rows = my_db.run_query(db_queries.missing_ratings)
+
+        if not rows:
+            logger.error(f"Error retrieving missing ratings.")
+            return None
+
+        rows = [{'job_id': row[0], 'resume_id': row[1]} for row in rows]
+        logger.info(f"Retrieved {len(rows)} missing ratings.")
+        return rows
+
+    except Exception as e:
+        logger.error(f"An error occurred while retrieving missing ratings: {e}")
+        return None
+
+
+def scrape_it():
     for search in get_outdated_searches():
         scraper.scrape_and_store_jobs(search)
-        # set_search_last_updated(search)
+        set_search_last_updated(search)
+
+
+def process_it():
+    get_missing_ratings()
+
+
+def main():
+    scrape_it()
+    process_it()
 
 
 if __name__ == "__main__":
