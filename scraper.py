@@ -1,6 +1,10 @@
 import common
 from my_types import SearchJobEntry, SearchEntry
-from helper import fix_dict_str_or_none
+from helper import (
+    fix_dict_str_or_none,
+    parse_delimited_string,
+    list_to_delimited_string,
+)
 from jobspy import scrape_jobs
 import datetime
 from supabase import Client
@@ -14,7 +18,7 @@ HOURS_OLD_NEW = 24
 HOURS_OLD_UPDATE = 4
 
 
-def _format_job(job: SearchJobEntry) -> None:
+def _format_job(job) -> None:
     """
     Formats the job received from JobSpy to remove unnecessary fields and change the format of others to be ready to
     upload it.
@@ -44,13 +48,30 @@ def _try_insert_job(job: dict) -> bool:
     :param job: dictionary with job values.
     :return: True if successfully inserted or retrieved existing job id, False if failed.
     """
-    existing_job = (
-        supabase.table("job").select("id").eq("job_url", job["job_url"]).execute()
+    existing_job_response = (
+        supabase.table("job").select("*").eq("job_url", job["job_url"]).execute()
     )
-    if existing_job.data and len(existing_job.data) > 0:
-        job["id"] = existing_job.data[0]["id"]
+    if existing_job_response.data and len(existing_job_response.data) > 0:
+        existing_job = existing_job_response.data[0]
+        job["id"] = existing_job["id"]
         logger.info(f"Job with URL {job['job_url']} already exists. Skipping insert.")
-        response = supabase.table("job").update("")
+
+        existing_matched_words = parse_delimited_string(existing_job["matched_words"])
+        new_matched_words = parse_delimited_string(job["matched_words"])
+        combined_matched_words = list(set(existing_matched_words + new_matched_words))
+        if not len(combined_matched_words) == len(existing_matched_words):
+            existing_job["matched_words"] = list_to_delimited_string(
+                combined_matched_words
+            )
+            response = (
+                supabase.table("job")
+                .update(existing_job)
+                .eq("id", existing_job["id"])
+                .execute()
+            )
+            logger.info(
+                f"Job with URL {job['job_url']} updated matched words {existing_matched_words} -> {combined_matched_words}."
+            )
     else:
         response = supabase.table("job").insert(job, upsert=False).execute()
         if not response.data or len(response.data) <= 0:
@@ -62,7 +83,7 @@ def _try_insert_job(job: dict) -> bool:
     return True
 
 
-def _try_insert_search_job(search_job: dict) -> bool:
+def _try_insert_search_job(search_job: SearchJobEntry) -> bool:
     """
     Inserts the search job in the database if it doesn't exist.
     :param search_job: dictionary with job values.
@@ -93,8 +114,8 @@ def _try_insert_search_job(search_job: dict) -> bool:
 
 def scrape_and_store_jobs(search: SearchEntry, is_new_search=False) -> None:
     # Job sources and search terms are stored as a comma separated list.
-    job_sources = [item.strip() for item in search["job_source"].split(",")]
-    search_terms = [item.strip() for item in search["search_term"].split(",")]
+    job_sources = parse_delimited_string(search["job_source"])
+    search_terms = parse_delimited_string(search["search_term"])
     for job_source in job_sources:
         for search_term in search_terms:
             try:
@@ -113,6 +134,7 @@ def scrape_and_store_jobs(search: SearchEntry, is_new_search=False) -> None:
                 for job in jobs.to_dict("records"):
                     try:
                         _format_job(job)
+                        job["matched_words"] = search["search_term"]
                         if not _try_insert_job(job):
                             continue
 
