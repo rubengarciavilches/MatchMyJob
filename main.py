@@ -30,7 +30,7 @@ supabase: Client = common.get_supabase_client()
 client = common.get_openai_client()
 
 
-def get_outdated_searches() -> my_types.JobSearchList | None:
+def get_outdated_searches() -> my_types.SearchEntryList | None:
     try:
         # Get the current time in UTC
         now = datetime.datetime.utcnow()
@@ -55,7 +55,7 @@ def get_outdated_searches() -> my_types.JobSearchList | None:
         return None
 
 
-def set_search_last_updated(search: my_types.JobSearchEntry):
+def set_search_last_updated(search: my_types.SearchEntry):
     try:
         # Get the current time in UTC
         now = helper.now_formatted_datetime()

@@ -47,6 +47,7 @@ def process_missing_ratings(missing_ratings: my_types.MissingRatingEntryList):
 
                 rating_data['job_id'] = missing_rating['job_id']
                 rating_data['resume_id'] = missing_rating['resume_id']
+                rating_data['user_id'] = resume['user_id']
 
                 response = supabase.table('rating').insert(rating_data).execute()
                 if not response.data or len(response.data) < 0:

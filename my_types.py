@@ -2,7 +2,7 @@ from typing import TypedDict, Optional
 from datetime import datetime
 
 
-class JobSearchEntry(TypedDict):
+class SearchEntry(TypedDict):
     id: int
     job_source: str
     search_term: str
@@ -16,7 +16,16 @@ class JobSearchEntry(TypedDict):
 
 
 # Define a type for the list of such dictionaries
-JobSearchList = list[JobSearchEntry]
+SearchEntryList = list[SearchEntry]
+
+
+class SearchJobEntry(TypedDict):
+    search_id: int
+    job_id: int
+    created_at: datetime
+
+
+SearchJobEntryList = list[SearchJobEntry]
 
 
 class MissingRatingEntry(TypedDict):
