@@ -1,4 +1,4 @@
-# Job Aggregator
+# MatchMyJob
 
 The aim of this project is to make the workload easier on users that are searching for a job by
 taking advantage of automated AI searches.
@@ -20,7 +20,7 @@ or resume, and rate how good of a match the user is for that position, justifyin
 - ✅ Create ``scraper`` logic, adds to ``search``, ``job`` and ``s_j``
 - ✅ Create ``processor`` logic, adds to ``rating``.
 - ✅ Use policies to open the relevant methods to the public client.
-- ❌ Add matched_words to job
+- ✅ Add matched_words to job
 
 ## Program Flow
 
