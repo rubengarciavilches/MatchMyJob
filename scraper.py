@@ -1,12 +1,15 @@
+from typing import Optional
+
+from pandas import DataFrame
+
 import common
-from my_types import SearchJobEntry, SearchEntry
+from my_types import SearchJobEntry, SearchEntry, JobEntry, JobEntryList
 from helper import (
-    fix_dict_str_or_none,
     parse_delimited_string,
     list_to_delimited_string,
 )
 from jobspy import scrape_jobs
-import datetime
+from datetime import datetime
 from supabase import Client
 
 # Initialize Logger, Supabase and OpenAI
@@ -18,31 +21,60 @@ HOURS_OLD_NEW = 24
 HOURS_OLD_UPDATE = 4
 
 
-def _format_job(job) -> None:
+def _format_jobs(jobs_df: DataFrame) -> JobEntryList:
     """
-    Formats the job received from JobSpy to remove unnecessary fields and change the format of others to be ready to
+    Formats the jobs received from JobSpy to remove unnecessary fields and change the format of others to be ready to
     upload it.
-    :param job: dictionary of values received from JobSpy
-    :return: None
+    :param jobs_df: dataframe of jobs received from JobSpy
+    :return: List of formatted job entries
     """
-    job.pop("company_url_direct", None)
-    job.pop("company_addresses", None)
-    job.pop("company_industry", None)
-    job.pop("company_num_employees", None)
-    job.pop("company_revenue", None)
-    job.pop("company_description", None)
-    job.pop("banner_photo_url", None)
-    job.pop("ceo_name", None)
-    job.pop("ceo_photo_url", None)
-    if isinstance(job["date_posted"], datetime.datetime):
-        job["date_posted"] = job["date_posted"].strftime("%Y-%m-%d")
-    else:
-        job["date_posted"] = None
-    job["job_id"] = job.pop("id", None)
-    fix_dict_str_or_none(job)
+    # Will go through all of this keys and ignore the additional ones in the job received.
+    expected_keys = {
+        # "id": int, We will get the id from the database insert response.
+        "site": Optional[str],
+        "job_url": Optional[str],
+        "job_url_direct": Optional[str],
+        "title": Optional[str],
+        "company": Optional[str],
+        "location": Optional[str],
+        "job_type": Optional[str],
+        "date_posted": Optional[datetime],
+        "interval": Optional[str],
+        "min_amount": Optional[str],
+        "max_amount": Optional[str],
+        "currency": Optional[str],
+        "is_remote": Optional[bool],
+        "job_function": Optional[str],
+        "emails": Optional[str],
+        "description": Optional[str],
+        "company_url": Optional[str],
+        "logo_photo_url": Optional[str],
+        "site_id": Optional[str],
+        "matched_words": Optional[str],
+        "job_level": Optional[str],
+    }
+
+    filtered_jobs: JobEntryList = []
+    jobs_raw = jobs_df.to_dict("records")
+    for job_raw in jobs_raw:
+        job_raw["site_id"] = job_raw["id"]
+        filtered_job: JobEntry = {}
+        for key, expected_type in expected_keys.items():
+            value = job_raw.pop(key, None)
+            if value is None or isinstance(value, expected_type):
+                filtered_job[key] = value
+            elif expected_type == Optional[datetime] and isinstance(value, datetime):
+                try:
+                    filtered_job[key] = value.strftime("%Y-%m-%d")
+                except ValueError:
+                    filtered_job[key] = None
+            else:
+                filtered_job[key] = None
+        filtered_jobs.append(filtered_job)
+    return filtered_jobs
 
 
-def _try_insert_job(job: dict) -> bool:
+def _try_insert_job(job: JobEntry) -> JobEntry | None:
     """
     Inserts the job in the database if it doesn't exist, otherwise it just updates the existing job id.
     :param job: dictionary with job values.
@@ -76,11 +108,11 @@ def _try_insert_job(job: dict) -> bool:
         response = supabase.table("job").insert(job, upsert=False).execute()
         if not response.data or len(response.data) <= 0:
             logger.error(f"Error storing job: {response.error.message}")
-            return False
+            return None
         else:
             job["id"] = response.data[0]["id"]
             logger.info(f"Stored job with ID: {response.data[0]['id']}")
-    return True
+    return job
 
 
 def _try_insert_search_job(search_job: SearchJobEntry) -> bool:
@@ -107,7 +139,7 @@ def _try_insert_search_job(search_job: SearchJobEntry) -> bool:
         return False
     else:
         logger.info(
-            f"Stored job with ID: <{response.data[0]['search_id']},{response.data[0]['job_id']}>"
+            f"Stored search job with ID: <{response.data[0]['search_id']},{response.data[0]['job_id']}>"
         )
     return True
 
@@ -119,7 +151,7 @@ def scrape_and_store_jobs(search: SearchEntry, is_new_search=False) -> None:
     for job_source in job_sources:
         for search_term in search_terms:
             try:
-                jobs = scrape_jobs(
+                jobs_df = scrape_jobs(
                     site_name=job_source,
                     search_term=search_term,
                     location=search["location"],
@@ -131,14 +163,18 @@ def scrape_and_store_jobs(search: SearchEntry, is_new_search=False) -> None:
                     == "linkedin",  # Specific to LinkedIn, unneeded for others.
                 )
 
-                for job in jobs.to_dict("records"):
+                for job in _format_jobs(jobs_df):
                     try:
-                        _format_job(job)
                         job["matched_words"] = search["search_term"]
-                        if not _try_insert_job(job):
+                        inserted_job = _try_insert_job(job)
+                        if inserted_job is None:
+                            logger.error(f"Error during job storing: {str(e)}")
                             continue
 
-                        search_job = {"search_id": search["id"], "job_id": job["id"]}
+                        search_job = {
+                            "search_id": search["id"],
+                            "job_id": inserted_job["id"],
+                        }
                         _try_insert_search_job(search_job)
                     except Exception as e:
                         logger.error(f"Error during job storing: {str(e)}")

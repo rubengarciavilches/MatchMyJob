@@ -1,53 +1,65 @@
 import datetime
 import json
 import time
-from typing import Dict, Any
 
 import common
-import helper
 
-TIME_BETWEEN_CALLS = 21
+MODEL = "gpt-4o-mini"
+MODEL_CPM = 500
+TIME_BETWEEN_CALLS = 60 / MODEL_CPM
 
 # Initialize Logger, Supabase and OpenAI
 logger = common.get_logger()
 openai = common.get_openai_client()
 time_last_call = datetime.datetime.now()
+print(
+    openai.chat.completions.create(
+        model=MODEL,
+        messages=[{"role": "system", "content": "Hello there"}],
+        max_tokens=200,
+    )
+)
 
 
-def _generate_response(response_object: dict, model: str, token_limit: int, system_prompt: list, user_prompt: list,
-                       temperature: float):
+def _generate_response(
+    response_object: dict,
+    model: str,
+    token_limit: int,
+    system_prompt: list,
+    user_prompt: list,
+    temperature: float,
+):
     # Extract mandatory fields
-    rating = response_object.get('rating')
-    justification = response_object.get('justification')
+    rating = response_object.get("rating")
+    justification = response_object.get("justification")
 
     # Extract optional fields
-    interval = response_object.get('interval')
-    min_amount = response_object.get('min_amount')
-    max_amount = response_object.get('max_amount')
-    currency = response_object.get('currency')
-    is_remote = response_object.get('is_remote')
-    display_data = response_object.get('display_data')
+    interval = response_object.get("interval")
+    min_amount = response_object.get("min_amount")
+    max_amount = response_object.get("max_amount")
+    currency = response_object.get("currency")
+    is_remote = response_object.get("is_remote")
+    display_data = response_object.get("display_data")
 
     job_data = {
-        'interval': interval,
-        'min_amount': min_amount,
-        'max_amount': max_amount,
-        'currency': currency,
-        'is_remote': is_remote,
+        "interval": interval,
+        "min_amount": min_amount,
+        "max_amount": max_amount,
+        "currency": currency,
+        "is_remote": is_remote,
     }
 
     rating_data = {
-        'rating': rating,
-        'justification': justification,
-        'display_data': display_data,
-        'model': model,
-        'token_limit': token_limit,
-        'system_prompt': json.dumps(system_prompt),
-        'user_prompt': json.dumps(user_prompt),
-        'temperature': temperature,
+        "rating": rating,
+        "justification": justification,
+        "display_data": display_data,
+        "model": model,
+        "token_limit": token_limit,
+        "system_prompt": json.dumps(system_prompt),
+        "user_prompt": json.dumps(user_prompt),
+        "temperature": temperature,
     }
 
-    # Return all relevant data
     return job_data, rating_data
 
 
@@ -60,7 +72,7 @@ def generate_rating(candidate_data: str) -> tuple[dict, dict] | None:
         time.sleep(TIME_BETWEEN_CALLS - time_diff)
     time_last_call = datetime.datetime.now()
 
-    model = "gpt-3.5-turbo"
+    model = MODEL
     token_limit = 550
     system_prompt = [
         {
@@ -94,7 +106,7 @@ def generate_rating(candidate_data: str) -> tuple[dict, dict] | None:
             "currency": "USD or other cur code",
             "is_remote": false/true
         }
-        """
+        """,
         }
     ]
 
@@ -119,7 +131,7 @@ def generate_rating(candidate_data: str) -> tuple[dict, dict] | None:
             token_limit=token_limit,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            temperature=temperature
+            temperature=temperature,
         )
 
     except Exception as e:
@@ -130,20 +142,23 @@ def generate_rating(candidate_data: str) -> tuple[dict, dict] | None:
 def clean_resume(content: str) -> dict[str] | None:
     try:
         response = openai.chat.completions.create(
-            model="gpt-4o-mini",
+            model=MODEL,
             messages=[
-                {"role": "system", "content": "You are an expert resume summary generator and confidential expert."},
+                {
+                    "role": "system",
+                    "content": "You are an expert resume summary generator and confidential expert.",
+                },
                 {
                     "role": "system",
                     "content": """You will receive a resume, summarize the content by removing 
-                    unnecessary characters like * or [, or unneeded whitespace keep other characters untouched."""
+                    unnecessary characters like * or [, or unneeded whitespace keep other characters untouched.""",
                 },
                 {
                     "role": "system",
                     "content": """You will receive a resume, erase all personal data and details, retain every other 
-                    data, reply in JSON following this template: {\"formatted_content\": \"\"}"""
+                    data, reply in JSON following this template: {\"formatted_content\": \"\"}""",
                 },
-                {"role": "user", "content": content}
+                {"role": "user", "content": content},
             ],
             max_tokens=1024,
             n=1,
@@ -152,7 +167,7 @@ def clean_resume(content: str) -> dict[str] | None:
         )
 
         response_object = json.loads(response.choices[0].message.content)
-        return {'formatted_content': response_object['formatted_content']}
+        return {"formatted_content": response_object["formatted_content"]}
 
     # except openai.error.RateLimitError:
     #     logger.warning("Rate limit exceeded. Retrying in 10 seconds...")

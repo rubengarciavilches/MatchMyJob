@@ -22,7 +22,7 @@ client = common.get_openai_client()
 def get_outdated_searches() -> my_types.SearchEntryList | None:
     try:
         # Get the current time in UTC
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.UTC)
 
         # Define the time threshold (3 hours ago)
         three_hours_ago = now - datetime.timedelta(hours=3)
