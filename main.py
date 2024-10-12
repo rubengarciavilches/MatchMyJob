@@ -5,6 +5,7 @@ import common
 import db_queries
 import helper
 import my_db
+import my_proxies
 import my_types
 from processor import process_missing_ratings
 import scraper
@@ -95,8 +96,12 @@ def get_missing_ratings():
 
 
 def scrape_it():
-    for search in get_outdated_searches():
-        scraper.scrape_and_store_jobs(search)
+    proxies = my_proxies.get_verified_proxies()
+    outdated_searches = get_outdated_searches()
+    logger.info(f"{len(outdated_searches)} searches to scrape.")
+
+    for search in outdated_searches:
+        scraper.scrape_and_store_jobs(search, proxies=proxies)
         set_search_last_updated(search)
 
 

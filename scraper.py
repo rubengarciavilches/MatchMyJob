@@ -144,7 +144,9 @@ def _try_insert_search_job(search_job: SearchJobEntry) -> bool:
     return True
 
 
-def scrape_and_store_jobs(search: SearchEntry, is_new_search=False) -> None:
+def scrape_and_store_jobs(
+    search: SearchEntry, is_new_search=False, proxies=None
+) -> None:
     # Job sources and search terms are stored as a comma separated list.
     job_sources = parse_delimited_string(search["job_source"])
     search_terms = parse_delimited_string(search["search_term"])
@@ -158,7 +160,7 @@ def scrape_and_store_jobs(search: SearchEntry, is_new_search=False) -> None:
                     results_wanted=search["results_wanted"],
                     hours_old=HOURS_OLD_NEW if is_new_search else HOURS_OLD_UPDATE,
                     country_indeed=search["country"],  # Specific to Indeed
-                    proxies=None,  # TODO Add proxies if needed
+                    proxies=proxies,
                     linkedin_fetch_description=job_source
                     == "linkedin",  # Specific to LinkedIn, unneeded for others.
                 )
