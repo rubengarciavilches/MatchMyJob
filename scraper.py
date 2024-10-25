@@ -160,7 +160,7 @@ def scrape_and_store_jobs(
                     results_wanted=search["results_wanted"],
                     hours_old=HOURS_OLD_NEW if is_new_search else HOURS_OLD_UPDATE,
                     country_indeed=search["country"],  # Specific to Indeed
-                    proxies=proxies,
+                    # proxies=proxies,
                     linkedin_fetch_description=job_source
                     == "linkedin",  # Specific to LinkedIn, unneeded for others.
                 )
